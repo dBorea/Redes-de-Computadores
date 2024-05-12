@@ -1,0 +1,5 @@
+register 0
+init file file0.txt
+update info 0 31 87 11 22 30 40
+update file file0.txt
+kill

@@ -1,0 +1,8 @@
+sala inexistente
+sala inválida
+sala instanciada com sucesso
+sala já existe
+sala inexistente
+sensores inválidos
+sensores inválidos
+sala inexistente

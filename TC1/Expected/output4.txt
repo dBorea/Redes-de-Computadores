@@ -1,0 +1,6 @@
+sala instanciada com sucesso
+sala instanciada com sucesso
+sala instanciada com sucesso
+sensores inicializados com sucesso
+sensores inicializados com sucesso
+salas: 4 (40 35 12 22 32 42) 0 (27 80 10 20 31 40) 7 (-1 -1 -1 -1 -1 -1)

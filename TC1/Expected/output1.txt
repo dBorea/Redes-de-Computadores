@@ -1,0 +1,5 @@
+sala instanciada com sucesso
+sala instanciada com sucesso
+sensores inicializados com sucesso
+sensores inicializados com sucesso
+sensores desligados com sucesso

@@ -1,0 +1,4 @@
+sala instanciada com sucesso
+sensores inicializados com sucesso
+informações atualizadas com sucesso
+informações atualizadas com sucesso

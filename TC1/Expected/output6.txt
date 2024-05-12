@@ -1,0 +1,8 @@
+sala instanciada com sucesso
+sala inexistente
+sala inexistente
+sensores não instalados
+sala inexistente
+sensores não instalados
+sensores inicializados com sucesso
+sensores já instalados

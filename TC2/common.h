@@ -1,0 +1,76 @@
+#pragma once
+
+#include <stdlib.h>
+#include <stdbool.h>
+#include <arpa/inet.h>
+
+#define BUFSZ 1024
+#define MSGSZ 256
+
+enum MessageType {
+    // No payload
+    REQ_ADD,        // both servers
+    REQ_INFOSE,     // only SE
+    REQ_STATUS,     // only SE
+    REQ_INFOSCII,   // only CII
+    REQ_UP,         // only CII
+    REQ_NONE,       // only CII
+    REQ_DOWN,       // only CII
+
+    // Sends payload
+    REQ_REM,        // both servers
+    RES_ADD,        // to client
+    RES_INFOSE,     // to client
+    RES_INFOSCII,   // to client
+    RES_STATUS,     // to client
+    RES_UP,         // to client
+    RES_NONE,       // to client
+    RES_DOWN,       // to client
+
+    ERROR,          // to client
+    OK              // to client
+};
+
+static const char *MessageTypeStr[] = {
+    "REQ_ADD",
+    "REQ_INFOSE",
+    "REQ_STATUS",
+    "REQ_INFOSCII",
+    "REQ_UP",
+    "REQ_NONE",
+    "REQ_DOWN",
+
+    "RES_ADD",
+    "REQ_REM",
+    "RES_INFOSE",
+    "RES_INFOSCII",
+    "RES_STATUS",
+    "RES_UP",
+    "RES_NONE",
+    "RES_DOWN",
+
+    "ERROR",
+    "OK"
+};
+
+typedef struct Message{
+    int type;
+    char payloadstr[MSGSZ];
+
+} Message;
+
+Message* buildMessage(int tp, char* pld);
+
+char* getMsgAsStr(Message* msg);
+
+// Premades
+
+void logexit(const char *msg);
+
+int addrparse(const char *addrstr, const char *portstr,
+              struct sockaddr_storage *storage);
+
+void addrtostr(const struct sockaddr *addr, char *str, size_t strsize);
+
+int server_sockaddr_init(const char *proto, const char *portstr,
+                         struct sockaddr_storage *storage);

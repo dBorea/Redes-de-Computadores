@@ -1,0 +1,9 @@
+register 0
+shutdown 5
+update info 1 27 80 10 20 31 40
+update info 0 27 80 10 20 31 40
+load info 7
+load info 0
+init info 0 27 80 10 20 31 40
+init info 0 27 80 10 20 31 40
+kill

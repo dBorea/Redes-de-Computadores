@@ -1,0 +1,7 @@
+register 0
+register 4
+init info 0 27 80 10 20 31 40
+init file file4.txt
+load info 0
+load info 4
+kill

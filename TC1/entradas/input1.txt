@@ -1,0 +1,6 @@
+register 0
+register 1
+init info 0 27 80 10 20 31 40
+init file file1.txt
+shutdown 1
+kill
