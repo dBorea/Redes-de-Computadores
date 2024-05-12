@@ -18,8 +18,32 @@ bool fit_args(char *args, char *pattern){
     return fit;
 }
 
-void handle_commands(){
+int handle_commands(Message *cmdMsg){
 
+    char inbuf[BUFSZ];
+    while(cmdMsg->type == -1){
+        memset(inbuf, 0, BUFSZ);
+        fgets(inbuf, BUFSZ-1, stdin);
+
+        if(strcmp(inbuf, "kill\n") == 0){
+            printf("KILL!!!\n");
+            changeMessage(cmdMsg, REQ_REM, "");
+        } else
+            if(strcmp(inbuf, "display info se\n") == 0){
+                printf("Info SE\n");
+                changeMessage(cmdMsg, REQ_INFOSE, "");
+        } else
+            if(strcmp(inbuf, "display info scii\n") == 0){
+                printf("Info CII\n");
+                changeMessage(cmdMsg, REQ_INFOSCII, "");
+        } else
+            if(strcmp(inbuf, "query condition\n") == 0){
+                printf("Querying\n");
+                changeMessage(cmdMsg, REQ_STATUS, "");
+        } 
+    }
+
+    return 0;
 }
 
 
@@ -46,24 +70,31 @@ int main(int argc, char **argv) {
         usage(argc, argv);
     }
 
+    int sockSE, sockSCII;
+    if(strcmp(argv[2], "12345") == 0 && strcmp(argv[3], "54321") == 0){
+        sockSE = socket(storage1.ss_family, SOCK_STREAM, 0);
+        sockSCII = socket(storage2.ss_family, SOCK_STREAM, 0);
+    }
+    else if(strcmp(argv[2], "54321") == 0 && strcmp(argv[3], "12345") == 0){
+        sockSE = socket(storage2.ss_family, SOCK_STREAM, 0);
+        sockSCII = socket(storage1.ss_family, SOCK_STREAM, 0);
+    } else {
+        logexit("Only ports \'12345\' and \'54321\' are accepted.\n");
+    }
 
-    int sock1;
-    sock1 = socket(storage1.ss_family, SOCK_STREAM, 0);
-    int sock2;
-    sock2 = socket(storage2.ss_family, SOCK_STREAM, 0);
-
-    if(sock1 == -1 || sock2 == -1){
+    if(sockSE == -1 || sockSCII == -1){
         logexit("socket");
     }
 
     int enable = 1;
-    if(0 != setsockopt(sock1, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) || 0 != setsockopt(sock2, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))){
+    if(0 != setsockopt(sockSE, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) || 
+        0 != setsockopt(sockSCII, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))){
         logexit("setsockopt");
     }
 
     struct sockaddr *addr1 = (struct sockaddr *)(&storage1);
     struct sockaddr *addr2 = (struct sockaddr *)(&storage2);
-    if(0 != connect(sock1, addr1, sizeof(storage1)) || 0 != connect(sock2, addr2, sizeof(storage2))){
+    if(0 != connect(sockSE, addr1, sizeof(storage1)) || 0 != connect(sockSCII, addr2, sizeof(storage2))){
         logexit("connect");
     }
 
@@ -73,12 +104,32 @@ int main(int argc, char **argv) {
     addrtostr(addr2, addrstr2, BUFSZ);
     printf("connected to %s and %s\n", addrstr1, addrstr2);
 
+    Message *msg_out = buildMessage(-1, "");
+    Message *msg_in = buildMessage(-1, "");
+    int bitcount;
+
+    // printf("[SENDING] %s\n", getMsgAsStr(msg_out, NULL));
+    // if(0 != sendMessage(sockSE, msg_out)){
+    //     logexit("Add request failed");
+    // }
+    // getMessage(sockSE, msg_in, &bitcount);
+    // printf("[MSG] %s\n", getMsgAsStr(msg_in, NULL));
+
     while(1){
-        // EXECUTION LOOP
+        // LOOP DE EXECUÇÃO INTERNO
+        handle_commands(msg_out);
+
+        if(0 != sendMessage(sockSE, msg_out)){
+            logexit("send");
+        }
+        
+        //Message *msg_in = buildMessage(-1, "");
+
+
     } 
 
-    close(sock1);
-    close(sock2);
+    close(sockSE);
+    close(sockSCII);
 
     exit(EXIT_SUCCESS);    
 }

@@ -59,9 +59,19 @@ typedef struct Message{
 
 } Message;
 
+bool StartsWith(const char *a, const char *b);
+
+char *strremove(char *str, const char *sub);
+
 Message* buildMessage(int tp, char* pld);
 
-char* getMsgAsStr(Message* msg);
+void changeMessage(Message* msg, int tp, char* pld);
+
+char* getMsgAsStr(Message* msg, size_t* msgSize);
+
+int sendMessage(int socket, Message* msg);
+
+int getMessage(int socket, Message* msg, int* bitcount);
 
 // Premades
 

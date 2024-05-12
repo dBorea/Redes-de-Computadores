@@ -23,6 +23,8 @@ typedef struct ClientData{
 } ClientData;
 
 typedef struct ServerData{
+    int clientIds[10];
+
     int server_type;
     int dataValue;
 
@@ -50,6 +52,27 @@ int randomPowerGen(){
     return 20 + rand() % (50 + 1 - 20);
 }
 
+int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
+    switch(msg->type){
+        case REQ_ADD:
+            printf("[MSG] Add request\n");
+            break;
+        case REQ_INFOSE:
+            break;
+        case REQ_STATUS:
+            break;
+        case REQ_INFOSCII:
+            break;
+        case REQ_UP:
+            break;
+        case REQ_NONE:
+            break;
+        case REQ_DOWN:
+            break;
+    }
+    return -1;
+}
+
 void * SE_thread(void *data){
     ServerData *server_data = (struct ServerData *)data;
     struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
@@ -60,8 +83,20 @@ void * SE_thread(void *data){
     printf("[SE] [log] connection from %s\n", caddrstr);
     printf("[SE] [log] Power Gen. initialized as %d\n", server_data->dataValue);
 
+    Message *msg_in = buildMessage(-1, "");  
+
     while(1){ // Loop interno do server SE, gerencia as mensagens e a comunicação com o cliente
         // EXECUTION LOOP
+        int bitcount;
+        if(0 != getMessage(cdata->csock, msg_in, &bitcount)){
+            printf("[log] client forcefully disconnected\n");
+            close(cdata->csock);
+            break;
+        }
+        //printf("[msg] (%d bytes) %s %s\n",(int)bitcount, MessageTypeStr[msg_in->type], msg_in->payloadstr);
+        fflush(stdout);
+
+        //serverMsgHandler(server_data, cdata->csock, msg_in);
     }
 
     pthread_exit(EXIT_SUCCESS);
@@ -104,6 +139,7 @@ int main(int argc, char **argv) {
     }
 
     ServerData *server_data = malloc(sizeof(ServerData));
+    for(int i=0; i<10; i++) { server_data->clientIds[i] = 0; }
 
     if(strcmp(argv[2], "12345") == 0){
         printf("Server type [SE] ");
@@ -161,7 +197,7 @@ int main(int argc, char **argv) {
         }
         memcpy(&(cdata->storage), &c_storage, sizeof(c_storage));
         memcpy(&(server_data->cdata), cdata, sizeof(*cdata));
-
+        server_data->cdata->csock = csock;
 
 
         pthread_t tid;

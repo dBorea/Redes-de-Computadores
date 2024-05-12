@@ -15,17 +15,56 @@ void logexit(const char *msg){
     exit(EXIT_FAILURE);
 }
 
-Message* buildMessage(int tp, char* pld){
-    if(tp < 0 || tp > 16)
-        return NULL;
+bool StartsWith(const char *a, const char *b){
+   if(strncmp(a, b, strlen(b)) == 0) return 1;
+   return 0;
+}
 
+char *strremove(char *str, const char *sub){
+    size_t len = strlen(sub);
+    if (len > 0) {
+        char *p = str;
+        while ((p = strstr(p, sub)) != NULL) {
+            memmove(p, p + len, strlen(p + len) + 1);
+        }
+    }
+    return str;
+}
+
+Message* buildMessage(int tp, char* pld){
     Message *msg = malloc(sizeof(Message));
     msg->type = tp;
     strcpy(msg->payloadstr, pld);
     return msg;
 }
 
-char* getMsgAsStr(Message* msg){
+void changeMessage(Message* msg, int tp, char* pld){
+    msg->type = tp;
+    strcpy(msg->payloadstr, pld);
+}
+
+int msgTypeFromString(char* str){
+    if(StartsWith(str, "REQ_ADD")) { return REQ_ADD; }
+    if(StartsWith(str, "REQ_INFOSE")) { return REQ_INFOSE; }
+    if(StartsWith(str, "REQ_STATUS")) { return REQ_STATUS; }
+    if(StartsWith(str, "REQ_INFOSCII")) { return REQ_INFOSCII; }
+    if(StartsWith(str, "REQ_UP")) { return REQ_UP; }
+    if(StartsWith(str, "REQ_NONE")) { return REQ_NONE; }
+    if(StartsWith(str, "REQ_DOWN")) { return REQ_DOWN; }
+    if(StartsWith(str, "RES_ADD")) { return RES_ADD; }
+    if(StartsWith(str, "REQ_REM")) { strremove(str, "REQ_REM "); return REQ_REM; }
+    if(StartsWith(str, "RES_INFOSE")) { strremove(str, "RES_INFOSE "); return RES_INFOSE; }
+    if(StartsWith(str, "RES_INFOSCII")) { strremove(str, "RES_INFOSCII "); return RES_INFOSCII; }
+    if(StartsWith(str, "RES_STATUS")) { strremove(str, "RES_STATUS "); return RES_STATUS; }
+    if(StartsWith(str, "RES_UP")) { strremove(str, "RES_UP "); return RES_UP; }
+    if(StartsWith(str, "RES_NONE")) { strremove(str, "RES_NONE "); return RES_NONE; }
+    if(StartsWith(str, "RES_DOWN")) { strremove(str, "RES_DOWN "); return RES_DOWN; }
+    if(StartsWith(str, "ERROR")) { strremove(str, "ERROR "); return ERROR; }
+    if(StartsWith(str, "OK")) { strremove(str, "OK "); return OK; }
+    return -1;
+}
+
+char* getMsgAsStr(Message* msg, size_t *msgSize){
 
     size_t size = MSGSZ;
 
@@ -36,6 +75,7 @@ char* getMsgAsStr(Message* msg){
 
         strcpy(buffer, MessageTypeStr[msg->type]);
         strcat(buffer, "\n");
+        if(msgSize != NULL) *msgSize = size;
         return buffer;
     } 
     else {
@@ -46,18 +86,39 @@ char* getMsgAsStr(Message* msg){
         strcpy(buffer, MessageTypeStr[msg->type]);
         strcat(buffer, " ");
         strcat(buffer, msg->payloadstr);
+        if(msgSize != NULL) *msgSize = size;
         return buffer;
     }
 }
 
 int sendMessage(int socket, Message* msg){
-    char* buffer = getMsgAsStr(msg);
+    size_t msgSize;
+    char* buffer = getMsgAsStr(msg, &msgSize);
+    printf("[SENDING] %s\n", buffer);
 
-    size_t count = send(socket, buffer, sizeof(buffer), 0);
+    size_t count = send(socket, buffer, msgSize, 0);
     
-    if(count != sizeof(buffer))
+    if(count != msgSize)
         return -1;
     
+    return 0;
+}
+
+int getMessage(int socket, Message* msg, int* bitcount){
+    char buffer[BUFSZ];
+    memset(buffer, 0, BUFSZ);
+
+    *bitcount = recv(socket, buffer, BUFSZ, 0);
+    if(*bitcount <= 0){
+        return -1;
+    }
+
+    printf("[MSG] %s\n", buffer);
+    msg->type = msgTypeFromString(buffer);
+    if(msg->type <= 6){
+        strcpy(msg->payloadstr, buffer);
+    } else { strcpy(msg->payloadstr, ""); }
+
     return 0;
 }
 
