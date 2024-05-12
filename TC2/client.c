@@ -26,19 +26,15 @@ int handle_commands(Message *cmdMsg){
         fgets(inbuf, BUFSZ-1, stdin);
 
         if(strcmp(inbuf, "kill\n") == 0){
-            printf("KILL!!!\n");
             changeMessage(cmdMsg, REQ_REM, "");
         } else
             if(strcmp(inbuf, "display info se\n") == 0){
-                printf("Info SE\n");
                 changeMessage(cmdMsg, REQ_INFOSE, "");
         } else
             if(strcmp(inbuf, "display info scii\n") == 0){
-                printf("Info CII\n");
                 changeMessage(cmdMsg, REQ_INFOSCII, "");
         } else
             if(strcmp(inbuf, "query condition\n") == 0){
-                printf("Querying\n");
                 changeMessage(cmdMsg, REQ_STATUS, "");
         } 
     }
@@ -117,8 +113,11 @@ int main(int argc, char **argv) {
 
     while(1){
         // LOOP DE EXECUÇÃO INTERNO
+        changeMessage(msg_out, -1, "");
         handle_commands(msg_out);
 
+
+        printf("[SENDING] %s\n", getMsgAsStr(msg_out, NULL));
         if(0 != sendMessage(sockSE, msg_out)){
             logexit("send");
         }

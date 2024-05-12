@@ -186,18 +186,18 @@ int main(int argc, char **argv) {
         struct sockaddr *caddr = (struct sockaddr *)(&c_storage);
         socklen_t caddrlen = sizeof(c_storage);
 
-        int csock = accept(s, caddr, &caddrlen);
-        if(csock == -1){
-            logexit("accept");
-        }
-        
         struct ClientData *cdata = malloc(sizeof(*cdata));
         if(!cdata){
             logexit("malloc");
         }
+        
+        cdata->csock = accept(s, caddr, &caddrlen);
+        if(cdata->csock == -1){
+            logexit("accept");
+        }
         memcpy(&(cdata->storage), &c_storage, sizeof(c_storage));
         memcpy(&(server_data->cdata), cdata, sizeof(*cdata));
-        server_data->cdata->csock = csock;
+        //server_data->cdata->csock = csock;
 
 
         pthread_t tid;

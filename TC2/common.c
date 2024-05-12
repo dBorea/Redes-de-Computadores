@@ -94,7 +94,7 @@ char* getMsgAsStr(Message* msg, size_t *msgSize){
 int sendMessage(int socket, Message* msg){
     size_t msgSize;
     char* buffer = getMsgAsStr(msg, &msgSize);
-    printf("[SENDING] %s\n", buffer);
+    // printf("[SENDING] %s\n", buffer);
 
     size_t count = send(socket, buffer, msgSize, 0);
     
@@ -109,6 +109,7 @@ int getMessage(int socket, Message* msg, int* bitcount){
     memset(buffer, 0, BUFSZ);
 
     *bitcount = recv(socket, buffer, BUFSZ, 0);
+    printf("[%d]\n", *bitcount);
     if(*bitcount <= 0){
         return -1;
     }
