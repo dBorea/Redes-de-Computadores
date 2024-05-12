@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -16,18 +17,48 @@ enum ServerType {
     CII
 };
 
-struct client_data{
+typedef struct ClientData{
     int csock;
     struct sockaddr_storage storage;
-};
+} ClientData;
+
+typedef struct ServerData{
+    int server_type;
+    int dataValue;
+
+    ClientData *cdata;
+} ServerData;
+
+// Gera valor aleatório no range 20~50 MWh -- type: 1(aumentar) 0(neutro) -1(diminuir)
+int randomPowerUsage(int type, ServerData *dados){
+    int newValue;
+    switch(type){
+        case 1: // Número aleatório entre dataValue e 100
+            newValue = dados->dataValue + rand() % (100 + 1 - dados->dataValue); 
+            break;
+        case 0: // Número aleatório entre 100 e 0
+            newValue = rand() % (100 + 1);
+            break;
+        case -1: // Número aleatório entre 0 e dataValue
+            newValue = rand() % (dados->dataValue + 1);
+            break;
+    }
+    return newValue;
+}
+
+int randomPowerGen(){
+    return 20 + rand() % (50 + 1 - 20);
+}
 
 void * SE_thread(void *data){
-    struct client_data *cdata = (struct client_data *)data;
+    ServerData *server_data = (struct ServerData *)data;
+    struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
     struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
 
     char caddrstr[BUFSZ];
     addrtostr(caddr, caddrstr, BUFSZ);
     printf("[SE] [log] connection from %s\n", caddrstr);
+    printf("[SE] [log] Power Gen. initialized as %d\n", server_data->dataValue);
 
     while(1){ // Loop interno do server SE, gerencia as mensagens e a comunicação com o cliente
         // EXECUTION LOOP
@@ -37,12 +68,15 @@ void * SE_thread(void *data){
 }
 
 void * CII_thread(void *data){
-    struct client_data *cdata = (struct client_data *)data;
+    ServerData *server_data = (struct ServerData *)data;
+    struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
     struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
 
     char caddrstr[BUFSZ];
     addrtostr(caddr, caddrstr, BUFSZ);
     printf("[CII] [log] connection from %s\n", caddrstr);
+    printf("[CII] [log] Power Usage initialized as %d\n", server_data->dataValue);
+
 
     while(1){ // Loop interno do server SE, gerencia as mensagens e a comunicação com o cliente
         // EXECUTION LOOP
@@ -58,6 +92,8 @@ void usage(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+    srand(time(NULL));
+
     if(argc < 3){
         usage(argc, argv);
     }
@@ -67,14 +103,19 @@ int main(int argc, char **argv) {
         usage(argc, argv);
     }
 
-    int server_type = -1;
+    ServerData *server_data = malloc(sizeof(ServerData));
+
     if(strcmp(argv[2], "12345") == 0){
-        server_type = SE;
         printf("Server type [SE] ");
-    } else if (strcmp(argv[2], "54321") == 0){
+        server_data->server_type = SE;
+        server_data->dataValue = randomPowerGen();
+    } 
+    else if (strcmp(argv[2], "54321") == 0){
         printf("Server type [CII] ");
-        server_type = CII;
-    } else {
+        server_data->server_type = CII;
+        server_data->dataValue = randomPowerUsage(0, server_data);
+    } 
+    else {
         logexit("Only ports \'12345\' and \'54321\' are accepted.\n");
     }
 
@@ -104,7 +145,7 @@ int main(int argc, char **argv) {
 
     bool running = true;
 
-     while(running){ // Loop externo, apenas para conexões;
+    while(running){ // Loop externo, apenas para conexões;
         struct sockaddr_storage c_storage;
         struct sockaddr *caddr = (struct sockaddr *)(&c_storage);
         socklen_t caddrlen = sizeof(c_storage);
@@ -114,20 +155,23 @@ int main(int argc, char **argv) {
             logexit("accept");
         }
         
-        struct client_data *cdata = malloc(sizeof(*cdata));
+        struct ClientData *cdata = malloc(sizeof(*cdata));
         if(!cdata){
             logexit("malloc");
         }
         memcpy(&(cdata->storage), &c_storage, sizeof(c_storage));
+        memcpy(&(server_data->cdata), cdata, sizeof(*cdata));
+
+
 
         pthread_t tid;
-        switch (server_type){
+        switch (server_data->server_type){
         case SE:
-            pthread_create(&tid, NULL, SE_thread, cdata);
+            pthread_create(&tid, NULL, SE_thread, server_data);
             break;
         
         case CII:
-            pthread_create(&tid, NULL, CII_thread, cdata);
+            pthread_create(&tid, NULL, CII_thread, server_data);
             break;
         }
 

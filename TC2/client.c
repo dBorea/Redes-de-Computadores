@@ -10,6 +10,14 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+bool fit_args(char *args, char *pattern){
+    regex_t reg;
+    regcomp(&reg, pattern, REG_EXTENDED);
+    bool fit = regexec(&reg, args, 0, NULL, 0);
+    regfree(&reg);
+    return fit;
+}
+
 void handle_commands(){
 
 }
