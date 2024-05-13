@@ -17,6 +17,11 @@ enum ServerType {
     CII
 };
 
+static const char *ServerTypeStr[] = {
+    "SE",
+    "CII"
+};
+
 typedef struct ClientData{
     int csock;
     struct sockaddr_storage storage;
@@ -52,21 +57,67 @@ int randomPowerGen(){
     return 20 + rand() % (50 + 1 - 20);
 }
 
+int tryIncludingClient(ServerData *server_data){
+    int i=0;
+    for(; i<10; i++){
+        if(server_data->clientIds[i] == 0)
+        break;
+    } if(i == 10) return -1;
+
+    printf("Client %d added\n", i);
+    server_data->clientIds[i] = 1;
+    return i;
+}
+
+int tryDisconnectingClient(ServerData *server_data, int C_id){
+    if(server_data->clientIds[C_id] != 1)
+        return -1;
+
+    server_data->clientIds[C_id] = 0;
+    printf("Servidor %s Client %d removed\n", ServerTypeStr[server_data->server_type], C_id);
+    return 0;
+}
+
 int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
+    Message* bufMsg = buildMessage(-1, "");
+    char strBuf[BUFSZ];
+    memset(strBuf, 0, BUFSZ);
+
     switch(msg->type){
         case REQ_ADD:
-            printf("[MSG] Add request\n");
+            int C_id = tryIncludingClient(server_data);
+            if(C_id == -1){
+                changeMessage(bufMsg, ERROR, "01\n");
+            }
+            else {
+                sprintf(strBuf, "%d\n", C_id);
+                changeMessage(bufMsg, RES_ADD, strBuf);
+            }
+            sendMessage(socket, bufMsg);
             break;
+        
+        case REQ_REM:
+            if(0 != tryDisconnectingClient(server_data, atoi(msg->payloadstr))){
+                changeMessage(bufMsg, ERROR, "02\n");
+            } else changeMessage(bufMsg, OK, "01\n");
+            sendMessage(socket, bufMsg);
+            break;
+
         case REQ_INFOSE:
             break;
+
         case REQ_STATUS:
             break;
+
         case REQ_INFOSCII:
             break;
+
         case REQ_UP:
             break;
+
         case REQ_NONE:
             break;
+
         case REQ_DOWN:
             break;
     }
@@ -93,10 +144,10 @@ void * SE_thread(void *data){
             close(cdata->csock);
             break;
         }
-        //printf("[msg] (%d bytes) %s %s\n",(int)bitcount, MessageTypeStr[msg_in->type], msg_in->payloadstr);
+        printf("[msg] (%d bytes) %s",(int)bitcount, getMsgAsStr(msg_in, NULL));
         fflush(stdout);
 
-        //serverMsgHandler(server_data, cdata->csock, msg_in);
+        serverMsgHandler(server_data, cdata->csock, msg_in);
     }
 
     pthread_exit(EXIT_SUCCESS);
@@ -112,9 +163,20 @@ void * CII_thread(void *data){
     printf("[CII] [log] connection from %s\n", caddrstr);
     printf("[CII] [log] Power Usage initialized as %d\n", server_data->dataValue);
 
+    Message *msg_in = buildMessage(-1, "");
 
     while(1){ // Loop interno do server SE, gerencia as mensagens e a comunicação com o cliente
         // EXECUTION LOOP
+        int bitcount;
+        if(0 != getMessage(cdata->csock, msg_in, &bitcount)){
+            printf("[log] client forcefully disconnected\n");
+            close(cdata->csock);
+            break;
+        }
+        printf("[msg] (%d bytes) %s",(int)bitcount, getMsgAsStr(msg_in, NULL));
+        fflush(stdout);
+
+        serverMsgHandler(server_data, cdata->csock, msg_in);
     }
 
     pthread_exit(EXIT_SUCCESS);

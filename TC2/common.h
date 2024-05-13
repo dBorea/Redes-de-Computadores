@@ -40,8 +40,8 @@ static const char *MessageTypeStr[] = {
     "REQ_NONE",
     "REQ_DOWN",
 
-    "RES_ADD",
     "REQ_REM",
+    "RES_ADD",
     "RES_INFOSE",
     "RES_INFOSCII",
     "RES_STATUS",
@@ -51,6 +51,11 @@ static const char *MessageTypeStr[] = {
 
     "ERROR",
     "OK"
+};
+
+enum MessageDirection{
+    IN = -1,
+    OUT = 1
 };
 
 typedef struct Message{

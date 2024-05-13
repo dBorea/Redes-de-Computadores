@@ -51,7 +51,7 @@ int msgTypeFromString(char* str){
     if(StartsWith(str, "REQ_UP")) { return REQ_UP; }
     if(StartsWith(str, "REQ_NONE")) { return REQ_NONE; }
     if(StartsWith(str, "REQ_DOWN")) { return REQ_DOWN; }
-    if(StartsWith(str, "RES_ADD")) { return RES_ADD; }
+    if(StartsWith(str, "RES_ADD")) { strremove(str, "RES_ADD "); return RES_ADD; }
     if(StartsWith(str, "REQ_REM")) { strremove(str, "REQ_REM "); return REQ_REM; }
     if(StartsWith(str, "RES_INFOSE")) { strremove(str, "RES_INFOSE "); return RES_INFOSE; }
     if(StartsWith(str, "RES_INFOSCII")) { strremove(str, "RES_INFOSCII "); return RES_INFOSCII; }
@@ -79,7 +79,7 @@ char* getMsgAsStr(Message* msg, size_t *msgSize){
         return buffer;
     } 
     else {
-        size = (strlen(MessageTypeStr[msg->type]) + strlen(msg->payloadstr) +2) * sizeof(char);
+        size = (strlen(MessageTypeStr[msg->type]) + strlen(msg->payloadstr) + 2) * sizeof(char);
         char *buffer = (char*)malloc(size);
         memset(buffer, 0, size);
 
@@ -94,7 +94,7 @@ char* getMsgAsStr(Message* msg, size_t *msgSize){
 int sendMessage(int socket, Message* msg){
     size_t msgSize;
     char* buffer = getMsgAsStr(msg, &msgSize);
-    // printf("[SENDING] %s\n", buffer);
+    printf("[SENDING] %s", buffer);
 
     size_t count = send(socket, buffer, msgSize, 0);
     
@@ -109,16 +109,16 @@ int getMessage(int socket, Message* msg, int* bitcount){
     memset(buffer, 0, BUFSZ);
 
     *bitcount = recv(socket, buffer, BUFSZ, 0);
-    printf("[%d]\n", *bitcount);
     if(*bitcount <= 0){
         return -1;
     }
 
-    printf("[MSG] %s\n", buffer);
     msg->type = msgTypeFromString(buffer);
-    if(msg->type <= 6){
+    printf("msg type = %d ", msg->type);
+    if(msg->type > 6){
         strcpy(msg->payloadstr, buffer);
     } else { strcpy(msg->payloadstr, ""); }
+    
 
     return 0;
 }

@@ -26,7 +26,7 @@ int handle_commands(Message *cmdMsg){
         fgets(inbuf, BUFSZ-1, stdin);
 
         if(strcmp(inbuf, "kill\n") == 0){
-            changeMessage(cmdMsg, REQ_REM, "");
+            changeMessage(cmdMsg, REQ_REM, "0\n");
         } else
             if(strcmp(inbuf, "display info se\n") == 0){
                 changeMessage(cmdMsg, REQ_INFOSE, "");
@@ -39,9 +39,40 @@ int handle_commands(Message *cmdMsg){
         } 
     }
 
-    return 0;
+    return cmdMsg->type;
 }
 
+int handle_and_send_msgOut(int socketSE, int socketSCII, Message *msg_out){
+    switch (msg_out->type){
+    case REQ_ADD:
+    case REQ_REM:
+        if(0 != sendMessage(socketSE, msg_out) || 0 != sendMessage(socketSCII, msg_out)){
+            logexit("Send both\n");
+        }
+        break;
+    
+    case REQ_INFOSE:
+    case REQ_STATUS:
+        if(0 != sendMessage(socketSE, msg_out)){
+            logexit("Send SE\n");
+        }
+        break;
+
+    case REQ_INFOSCII:
+    case REQ_UP:    
+    case REQ_NONE:
+    case REQ_DOWN:
+        if(0 != sendMessage(socketSCII, msg_out)){
+            logexit("Send SE\n");
+        }
+        break;
+    }
+    
+}
+
+int handle_incoming_messages(int socketSE, int socketSCII, int type, Message *msg_in){
+
+}
 
 
 
@@ -100,14 +131,13 @@ int main(int argc, char **argv) {
     addrtostr(addr2, addrstr2, BUFSZ);
     printf("connected to %s and %s\n", addrstr1, addrstr2);
 
-    Message *msg_out = buildMessage(-1, "");
+    Message *msg_out = buildMessage(REQ_ADD, "");
     Message *msg_in = buildMessage(-1, "");
     int bitcount;
 
-    // printf("[SENDING] %s\n", getMsgAsStr(msg_out, NULL));
-    // if(0 != sendMessage(sockSE, msg_out)){
-    //     logexit("Add request failed");
-    // }
+    if(0 != sendMessage(sockSE, msg_out) || 0 != sendMessage(sockSCII, msg_out)){
+        logexit("Add request failed");
+    }
     // getMessage(sockSE, msg_in, &bitcount);
     // printf("[MSG] %s\n", getMsgAsStr(msg_in, NULL));
 
@@ -116,11 +146,12 @@ int main(int argc, char **argv) {
         changeMessage(msg_out, -1, "");
         handle_commands(msg_out);
 
+        handle_and_send_msgOut(sockSE, sockSCII, msg_out);
 
-        printf("[SENDING] %s\n", getMsgAsStr(msg_out, NULL));
-        if(0 != sendMessage(sockSE, msg_out)){
-            logexit("send");
-        }
+        //handle_incoming_messages(sockSE, sockSCII, msg_out->type, msg_in);
+
+
+        
         
         //Message *msg_in = buildMessage(-1, "");
 
