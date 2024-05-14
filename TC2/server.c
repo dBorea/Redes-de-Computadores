@@ -12,16 +12,6 @@
 #include <bits/pthreadtypes.h>
 #include <asm-generic/socket.h>
 
-enum ServerType {
-    SE,
-    CII
-};
-
-static const char *ServerTypeStr[] = {
-    "SE",
-    "CII"
-};
-
 typedef struct ClientData{
     int csock;
     struct sockaddr_storage storage;
@@ -88,19 +78,25 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
             int C_id = tryIncludingClient(server_data);
             if(C_id == -1){
                 changeMessage(bufMsg, ERROR, "01\n");
+                sendMessage(socket, bufMsg);
+                return -1;
             }
             else {
                 sprintf(strBuf, "%d\n", C_id);
                 changeMessage(bufMsg, RES_ADD, strBuf);
+                sendMessage(socket, bufMsg);
             }
-            sendMessage(socket, bufMsg);
             break;
         
         case REQ_REM:
             if(0 != tryDisconnectingClient(server_data, atoi(msg->payloadstr))){
                 changeMessage(bufMsg, ERROR, "02\n");
-            } else changeMessage(bufMsg, OK, "01\n");
-            sendMessage(socket, bufMsg);
+                sendMessage(socket, bufMsg);
+            } else {
+                changeMessage(bufMsg, OK, "01\n");
+                sendMessage(socket, bufMsg);
+                return -1;
+            }
             break;
 
         case REQ_INFOSE:
@@ -121,7 +117,7 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
         case REQ_DOWN:
             break;
     }
-    return -1;
+    return 0;
 }
 
 void * SE_thread(void *data){
@@ -147,7 +143,9 @@ void * SE_thread(void *data){
         printf("[msg] (%d bytes) %s",(int)bitcount, getMsgAsStr(msg_in, NULL));
         fflush(stdout);
 
-        serverMsgHandler(server_data, cdata->csock, msg_in);
+        if(-1 == serverMsgHandler(server_data, cdata->csock, msg_in)){
+            pthread_exit(EXIT_SUCCESS);
+        }
     }
 
     pthread_exit(EXIT_SUCCESS);
@@ -176,7 +174,9 @@ void * CII_thread(void *data){
         printf("[msg] (%d bytes) %s",(int)bitcount, getMsgAsStr(msg_in, NULL));
         fflush(stdout);
 
-        serverMsgHandler(server_data, cdata->csock, msg_in);
+        if(-1 == serverMsgHandler(server_data, cdata->csock, msg_in)){
+            pthread_exit(EXIT_SUCCESS);
+        }
     }
 
     pthread_exit(EXIT_SUCCESS);

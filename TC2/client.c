@@ -10,15 +10,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-bool fit_args(char *args, char *pattern){
-    regex_t reg;
-    regcomp(&reg, pattern, REG_EXTENDED);
-    bool fit = regexec(&reg, args, 0, NULL, 0);
-    regfree(&reg);
-    return fit;
-}
+int C_id;
 
-int handle_commands(Message *cmdMsg){
+int build_command_msg(Message *cmdMsg){
 
     char inbuf[BUFSZ];
     while(cmdMsg->type == -1){
@@ -26,7 +20,9 @@ int handle_commands(Message *cmdMsg){
         fgets(inbuf, BUFSZ-1, stdin);
 
         if(strcmp(inbuf, "kill\n") == 0){
-            changeMessage(cmdMsg, REQ_REM, "0\n");
+            char killBuf[10];
+            sprintf(killBuf, "%d\n", C_id);
+            changeMessage(cmdMsg, REQ_REM, killBuf);
         } else
             if(strcmp(inbuf, "display info se\n") == 0){
                 changeMessage(cmdMsg, REQ_INFOSE, "");
@@ -49,31 +45,125 @@ int handle_and_send_msgOut(int socketSE, int socketSCII, Message *msg_out){
         if(0 != sendMessage(socketSE, msg_out) || 0 != sendMessage(socketSCII, msg_out)){
             logexit("Send both\n");
         }
-        break;
+        return BOTH_SERVERS;
     
     case REQ_INFOSE:
     case REQ_STATUS:
         if(0 != sendMessage(socketSE, msg_out)){
             logexit("Send SE\n");
         }
-        break;
+        return SE;
 
     case REQ_INFOSCII:
     case REQ_UP:    
     case REQ_NONE:
     case REQ_DOWN:
         if(0 != sendMessage(socketSCII, msg_out)){
-            logexit("Send SE\n");
+            logexit("Send SCII\n");
         }
-        break;
+        return CII;
     }
     
 }
 
-int handle_incoming_messages(int socketSE, int socketSCII, int type, Message *msg_in){
+int handle_received_messages(Message* msg_in){
+    
+    switch(msg_in->type){
+        case RES_ADD:
+            C_id = atoi(msg_in->payloadstr);
+            printf("Servidor SE New ID: %d\n", C_id);
+            printf("Servidor SCII New ID: %d\n", C_id);
+            break;
 
+        case RES_INFOSE:
+            break;
+
+        case RES_INFOSCII:
+            break;
+
+        case RES_STATUS:
+            break;
+
+        case RES_UP:
+            break;
+
+        case RES_NONE:
+            break;
+
+        case RES_DOWN:
+            break;
+
+        case ERROR:
+            if(atoi(msg_in->payloadstr) == 1) return -1;
+            if(atoi(msg_in->payloadstr) == 2) return -2;
+            break;
+
+        case OK:
+            if(atoi(msg_in->payloadstr) == 1) return 1;
+            break;
+    }
+
+    return 0;
 }
 
+int handle_incoming_messages(int sentTo, int socketSE, int socketSCII, int msgOutType){
+    Message* msg_in_SE = buildMessage(-1, "");
+    Message* msg_in_SCII = buildMessage(-1, "");
+    int bitcount;
+
+    switch(sentTo){
+        case SE:
+            if(0 != getMessage(socketSE, msg_in_SE, &bitcount)){
+                logexit("SE server stopped responding\n");
+            }
+            break;
+        
+        case CII:
+            if(0 != getMessage(socketSCII, msg_in_SCII, &bitcount)){
+                logexit("SCII server stopped responding\n");
+            }
+            break;
+
+        case BOTH_SERVERS:
+            if(0 != getMessage(socketSE, msg_in_SE, &bitcount) || 0 != getMessage(socketSCII, msg_in_SCII, &bitcount)){
+                logexit("At least one server stopped responding\n");
+            }
+            break;
+    }
+
+    switch(msgOutType){
+        case REQ_INFOSE:
+            break;
+
+        case REQ_STATUS:
+            break;
+
+        case REQ_INFOSCII:
+            break;
+
+        case REQ_UP:
+            break;
+
+        case REQ_NONE:
+            break;
+
+        case REQ_DOWN:
+            break;
+
+        case REQ_REM:
+            if(handle_received_messages(msg_in_SE) == 1 && handle_received_messages(msg_in_SCII) == 1){
+                printf("Successful disconnect\n");
+                return 1;
+            } 
+            else if(handle_received_messages(msg_in_SE) == -2 && handle_received_messages(msg_in_SCII) == -2){
+                printf("Client not found\n");
+                return -2;
+            }
+            else logexit("REQ_REM returned invalid messages\n");
+            
+            
+    }
+}
 
 
 void usage(int argc, char **argv) {
@@ -134,26 +224,29 @@ int main(int argc, char **argv) {
     Message *msg_out = buildMessage(REQ_ADD, "");
     Message *msg_in = buildMessage(-1, "");
     int bitcount;
+    int running = 1;
 
     if(0 != sendMessage(sockSE, msg_out) || 0 != sendMessage(sockSCII, msg_out)){
         logexit("Add request failed");
     }
-    // getMessage(sockSE, msg_in, &bitcount);
-    // printf("[MSG] %s\n", getMsgAsStr(msg_in, NULL));
 
-    while(1){
+    if(0 != getMessage(sockSE, msg_in, &bitcount) || 0 != getMessage(sockSCII, msg_in, &bitcount)){
+        logexit("At least one server stopped responding\n");
+    }
+    
+    if (handle_received_messages(msg_in) == -1){
+        running = 0;
+        printf("Client limit exceeded\n");
+    }
+
+    while(running){
         // LOOP DE EXECUÇÃO INTERNO
         changeMessage(msg_out, -1, "");
-        handle_commands(msg_out);
+        build_command_msg(msg_out);
 
-        handle_and_send_msgOut(sockSE, sockSCII, msg_out);
+        int sentTo = handle_and_send_msgOut(sockSE, sockSCII, msg_out);
 
-        //handle_incoming_messages(sockSE, sockSCII, msg_out->type, msg_in);
-
-
-        
-        
-        //Message *msg_in = buildMessage(-1, "");
+        handle_incoming_messages(sentTo, sockSE, sockSCII, msg_out->type);
 
 
     } 

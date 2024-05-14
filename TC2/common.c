@@ -114,7 +114,7 @@ int getMessage(int socket, Message* msg, int* bitcount){
     }
 
     msg->type = msgTypeFromString(buffer);
-    printf("msg type = %d ", msg->type);
+    //printf("msg type = %d \n", msg->type);
     if(msg->type > 6){
         strcpy(msg->payloadstr, buffer);
     } else { strcpy(msg->payloadstr, ""); }

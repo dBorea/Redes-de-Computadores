@@ -53,9 +53,15 @@ static const char *MessageTypeStr[] = {
     "OK"
 };
 
-enum MessageDirection{
-    IN = -1,
-    OUT = 1
+enum ServerType {
+    SE,
+    CII,
+    BOTH_SERVERS
+};
+
+static const char *ServerTypeStr[] = {
+    "SE",
+    "CII"
 };
 
 typedef struct Message{
