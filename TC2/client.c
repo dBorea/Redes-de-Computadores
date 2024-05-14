@@ -76,12 +76,15 @@ int handle_received_messages(Message* msg_in){
             break;
 
         case RES_INFOSE:
+            printf("producao atual: %s", msg_in->payloadstr);
             break;
 
         case RES_INFOSCII:
+            printf("consumo atual: %s", msg_in->payloadstr);
             break;
 
         case RES_STATUS:
+            printf("estado atual: %s", msg_in->payloadstr);
             break;
 
         case RES_UP:
@@ -133,21 +136,15 @@ int handle_incoming_messages(int sentTo, int socketSE, int socketSCII, int msgOu
 
     switch(msgOutType){
         case REQ_INFOSE:
+            handle_received_messages(msg_in_SE);
             break;
 
         case REQ_STATUS:
+            handle_received_messages(msg_in_SE);
             break;
 
         case REQ_INFOSCII:
-            break;
-
-        case REQ_UP:
-            break;
-
-        case REQ_NONE:
-            break;
-
-        case REQ_DOWN:
+            handle_received_messages(msg_in_SCII);
             break;
 
         case REQ_REM:

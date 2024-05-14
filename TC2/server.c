@@ -26,7 +26,7 @@ typedef struct ServerData{
     ClientData *cdata;
 } ServerData;
 
-// Gera valor aleatório no range 20~50 MWh -- type: 1(aumentar) 0(neutro) -1(diminuir)
+// Gera valor aleatório no range 0~100% -- type: 1(aumentar) 0(neutro) -1(diminuir)
 int randomPowerUsage(int type, ServerData *dados){
     int newValue;
     switch(type){
@@ -100,27 +100,53 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
             break;
 
         case REQ_INFOSE:
+            sprintf(strBuf, "%d\n", server_data->dataValue);
+            changeMessage(bufMsg, RES_INFOSE, strBuf);
+            sendMessage(socket, bufMsg);
             break;
 
         case REQ_STATUS:
+            if(server_data->dataValue <= 30){
+                sprintf(strBuf, "baixa\n");
+            } else if(server_data->dataValue <= 40){
+                sprintf(strBuf, "moderada\n");
+            } else {
+                sprintf(strBuf, "alta\n");
+            }
+            changeMessage(bufMsg, RES_INFOSE, strBuf);
+            sendMessage(socket, bufMsg);
+            server_data->dataValue = randomPowerGen();
             break;
 
         case REQ_INFOSCII:
+            sprintf(strBuf, "%d\n", server_data->dataValue);
+            changeMessage(bufMsg, RES_INFOSCII, strBuf);
+            sendMessage(socket, bufMsg);
             break;
 
         case REQ_UP:
+            int old_value_up = server_data->dataValue;
+            server_data->dataValue = randomPowerUsage(1, server_data);
+            sprintf(strBuf, "%d %d\n", old_value_up, server_data->dataValue);
+            sendMessage(socket, bufMsg);
             break;
 
         case REQ_NONE:
+            sprintf(strBuf, "%d\n", server_data->dataValue);
+            sendMessage(socket, bufMsg);
             break;
 
         case REQ_DOWN:
+            int old_value_down = server_data->dataValue;
+            server_data->dataValue = randomPowerUsage(1, server_data);
+            sprintf(strBuf, "%d %d\n", old_value_down, server_data->dataValue);
+            sendMessage(socket, bufMsg);
             break;
     }
     return 0;
 }
 
-void * SE_thread(void *data){
+void * client_thread(void *data){
     ServerData *server_data = (struct ServerData *)data;
     struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
     struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
@@ -128,7 +154,6 @@ void * SE_thread(void *data){
     char caddrstr[BUFSZ];
     addrtostr(caddr, caddrstr, BUFSZ);
     printf("[SE] [log] connection from %s\n", caddrstr);
-    printf("[SE] [log] Power Gen. initialized as %d\n", server_data->dataValue);
 
     Message *msg_in = buildMessage(-1, "");  
 
@@ -151,7 +176,7 @@ void * SE_thread(void *data){
     pthread_exit(EXIT_SUCCESS);
 }
 
-void * CII_thread(void *data){
+/* void * CII_thread(void *data){
     ServerData *server_data = (struct ServerData *)data;
     struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
     struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
@@ -159,7 +184,6 @@ void * CII_thread(void *data){
     char caddrstr[BUFSZ];
     addrtostr(caddr, caddrstr, BUFSZ);
     printf("[CII] [log] connection from %s\n", caddrstr);
-    printf("[CII] [log] Power Usage initialized as %d\n", server_data->dataValue);
 
     Message *msg_in = buildMessage(-1, "");
 
@@ -175,12 +199,12 @@ void * CII_thread(void *data){
         fflush(stdout);
 
         if(-1 == serverMsgHandler(server_data, cdata->csock, msg_in)){
-            pthread_exit(EXIT_SUCCESS);
+            break;
         }
     }
 
     pthread_exit(EXIT_SUCCESS);
-}
+} */
 
 void usage(int argc, char **argv) {
     printf("usage: %s <v4/v6> <server port>\n", argv[0]);
@@ -204,18 +228,23 @@ int main(int argc, char **argv) {
     for(int i=0; i<10; i++) { server_data->clientIds[i] = 0; }
 
     if(strcmp(argv[2], "12345") == 0){
-        printf("Server type [SE] ");
+        printf("Server type [SE]\n");
         server_data->server_type = SE;
         server_data->dataValue = randomPowerGen();
+        printf("[SE] [log] Power Gen. initialized as %d\n", server_data->dataValue);
+
     } 
     else if (strcmp(argv[2], "54321") == 0){
-        printf("Server type [CII] ");
+        printf("Server type [CII]\n");
         server_data->server_type = CII;
         server_data->dataValue = randomPowerUsage(0, server_data);
+        printf("[CII] [log] Power Usage. initialized as %d\n", server_data->dataValue);
+
     } 
     else {
         logexit("Only ports \'12345\' and \'54321\' are accepted.\n");
     }
+    
 
     int s;
     s = socket(storage.ss_family, SOCK_STREAM, 0);
@@ -263,7 +292,8 @@ int main(int argc, char **argv) {
 
 
         pthread_t tid;
-        switch (server_data->server_type){
+        pthread_create(&tid, NULL, client_thread, server_data);
+        /* switch (server_data->server_type){
         case SE:
             pthread_create(&tid, NULL, SE_thread, server_data);
             break;
@@ -271,7 +301,7 @@ int main(int argc, char **argv) {
         case CII:
             pthread_create(&tid, NULL, CII_thread, server_data);
             break;
-        }
+        } */
 
     }
 
