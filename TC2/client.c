@@ -67,7 +67,8 @@ int handle_and_send_msgOut(int socketSE, int socketSCII, Message *msg_out){
 }
 
 int handle_received_messages(Message* msg_in){
-    
+    int old_value, new_value;
+
     switch(msg_in->type){
         case RES_ADD:
             C_id = atoi(msg_in->payloadstr);
@@ -85,15 +86,20 @@ int handle_received_messages(Message* msg_in){
 
         case RES_STATUS:
             printf("estado atual: %s", msg_in->payloadstr);
+            if(strcmp(msg_in->payloadstr, "alta\n") == 0) return 5;
+            if(strcmp(msg_in->payloadstr, "moderada\n") == 0) return 4;
+            if(strcmp(msg_in->payloadstr, "baixa\n") == 0) return 3;
             break;
 
         case RES_UP:
+        case RES_DOWN:
+            sscanf(msg_in->payloadstr, "%d %d", &old_value, &new_value);
+            printf("consumo antigo: %d\nconsumo atual: %d\n", old_value, new_value);
             break;
 
         case RES_NONE:
-            break;
-
-        case RES_DOWN:
+            old_value = atoi(msg_in->payloadstr);
+            printf("consumo antigo: %d\n", old_value);
             break;
 
         case ERROR:
@@ -112,6 +118,7 @@ int handle_received_messages(Message* msg_in){
 int handle_incoming_messages(int sentTo, int socketSE, int socketSCII, int msgOutType){
     Message* msg_in_SE = buildMessage(-1, "");
     Message* msg_in_SCII = buildMessage(-1, "");
+    Message* msg_out_buff = buildMessage(-1, "");
     int bitcount;
 
     switch(sentTo){
@@ -140,10 +147,26 @@ int handle_incoming_messages(int sentTo, int socketSE, int socketSCII, int msgOu
             break;
 
         case REQ_STATUS:
-            handle_received_messages(msg_in_SE);
-            break;
+            switch(handle_received_messages(msg_in_SE)){
+                case 3:
+                    changeMessage(msg_out_buff, REQ_DOWN, "");
+                    break;
+                case 4:
+                    changeMessage(msg_out_buff, REQ_NONE, "");
+                    break;
+                case 5:
+                    changeMessage(msg_out_buff, REQ_UP, "");
+                    break;
+                default:
+                    logexit("REQ_STATUS returned invalid response from server\n");
+            }
+            sendMessage(socketSCII, msg_out_buff);
+            return msg_out_buff->type;
 
         case REQ_INFOSCII:
+        case REQ_DOWN:
+        case REQ_NONE:
+        case REQ_UP:
             handle_received_messages(msg_in_SCII);
             break;
 
@@ -157,9 +180,9 @@ int handle_incoming_messages(int sentTo, int socketSE, int socketSCII, int msgOu
                 return -2;
             }
             else logexit("REQ_REM returned invalid messages\n");
-            
-            
     }
+
+    return 0;
 }
 
 
@@ -243,7 +266,12 @@ int main(int argc, char **argv) {
 
         int sentTo = handle_and_send_msgOut(sockSE, sockSCII, msg_out);
 
-        handle_incoming_messages(sentTo, sockSE, sockSCII, msg_out->type);
+        int retCode = handle_incoming_messages(sentTo, sockSE, sockSCII, msg_out->type);
+
+        // Espera por mensagens mais uma vez em caso de requisições multi-step
+        if(retCode == REQ_UP || retCode == REQ_NONE || retCode == REQ_DOWN){
+            handle_incoming_messages(CII, sockSE, sockSCII, retCode);
+        }
 
 
     } 

@@ -15,6 +15,7 @@
 typedef struct ClientData{
     int csock;
     struct sockaddr_storage storage;
+    int client_id;
 } ClientData;
 
 typedef struct ServerData{
@@ -56,6 +57,9 @@ int tryIncludingClient(ServerData *server_data){
 
     printf("Client %d added\n", i);
     server_data->clientIds[i] = 1;
+
+    struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
+    cdata->client_id = i;
     return i;
 }
 
@@ -113,7 +117,7 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
             } else {
                 sprintf(strBuf, "alta\n");
             }
-            changeMessage(bufMsg, RES_INFOSE, strBuf);
+            changeMessage(bufMsg, RES_STATUS, strBuf);
             sendMessage(socket, bufMsg);
             server_data->dataValue = randomPowerGen();
             break;
@@ -128,18 +132,21 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
             int old_value_up = server_data->dataValue;
             server_data->dataValue = randomPowerUsage(1, server_data);
             sprintf(strBuf, "%d %d\n", old_value_up, server_data->dataValue);
+            changeMessage(bufMsg, RES_UP, strBuf);
             sendMessage(socket, bufMsg);
             break;
 
         case REQ_NONE:
             sprintf(strBuf, "%d\n", server_data->dataValue);
+            changeMessage(bufMsg, RES_NONE, strBuf);
             sendMessage(socket, bufMsg);
             break;
 
         case REQ_DOWN:
             int old_value_down = server_data->dataValue;
-            server_data->dataValue = randomPowerUsage(1, server_data);
+            server_data->dataValue = randomPowerUsage(-1, server_data);
             sprintf(strBuf, "%d %d\n", old_value_down, server_data->dataValue);
+            changeMessage(bufMsg, RES_DOWN, strBuf);
             sendMessage(socket, bufMsg);
             break;
     }
@@ -158,10 +165,11 @@ void * client_thread(void *data){
     Message *msg_in = buildMessage(-1, "");  
 
     while(1){ // Loop interno do server SE, gerencia as mensagens e a comunicação com o cliente
-        // EXECUTION LOOP
+        // EXECUTION LOOP 
         int bitcount;
         if(0 != getMessage(cdata->csock, msg_in, &bitcount)){
-            printf("[log] client forcefully disconnected\n");
+            // printf("[log] client forcefully disconnected\n");
+            tryDisconnectingClient(server_data, cdata->client_id);
             close(cdata->csock);
             break;
         }
@@ -176,35 +184,6 @@ void * client_thread(void *data){
     pthread_exit(EXIT_SUCCESS);
 }
 
-/* void * CII_thread(void *data){
-    ServerData *server_data = (struct ServerData *)data;
-    struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
-    struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
-
-    char caddrstr[BUFSZ];
-    addrtostr(caddr, caddrstr, BUFSZ);
-    printf("[CII] [log] connection from %s\n", caddrstr);
-
-    Message *msg_in = buildMessage(-1, "");
-
-    while(1){ // Loop interno do server SE, gerencia as mensagens e a comunicação com o cliente
-        // EXECUTION LOOP
-        int bitcount;
-        if(0 != getMessage(cdata->csock, msg_in, &bitcount)){
-            printf("[log] client forcefully disconnected\n");
-            close(cdata->csock);
-            break;
-        }
-        printf("[msg] (%d bytes) %s",(int)bitcount, getMsgAsStr(msg_in, NULL));
-        fflush(stdout);
-
-        if(-1 == serverMsgHandler(server_data, cdata->csock, msg_in)){
-            break;
-        }
-    }
-
-    pthread_exit(EXIT_SUCCESS);
-} */
 
 void usage(int argc, char **argv) {
     printf("usage: %s <v4/v6> <server port>\n", argv[0]);
