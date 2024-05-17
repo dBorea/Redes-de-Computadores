@@ -31,37 +31,10 @@ enum MessageType {
     OK              // to client
 };
 
-static const char *MessageTypeStr[] = {
-    "REQ_ADD",
-    "REQ_INFOSE",
-    "REQ_STATUS",
-    "REQ_INFOSCII",
-    "REQ_UP",
-    "REQ_NONE",
-    "REQ_DOWN",
-
-    "REQ_REM",
-    "RES_ADD",
-    "RES_INFOSE",
-    "RES_INFOSCII",
-    "RES_STATUS",
-    "RES_UP",
-    "RES_NONE",
-    "RES_DOWN",
-
-    "ERROR",
-    "OK"
-};
-
 enum ServerType {
     SE,
     CII,
     BOTH_SERVERS
-};
-
-static const char *ServerTypeStr[] = {
-    "SE",
-    "CII"
 };
 
 typedef struct Message{
@@ -80,9 +53,9 @@ void changeMessage(Message* msg, int tp, char* pld);
 
 char* getMsgAsStr(Message* msg, size_t* msgSize);
 
-int sendMessage(int socket, Message* msg);
+int sendMessage(int socket, Message* msg, bool areWePrinting);
 
-int getMessage(int socket, Message* msg, int* bitcount);
+int getMessage(int socket, Message* msg, int* bitcount, bool areWePrinting);
 
 // Premades
 

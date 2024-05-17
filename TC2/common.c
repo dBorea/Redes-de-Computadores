@@ -8,6 +8,28 @@
 
 #include <arpa/inet.h>
 
+static const char *MessageTypeStr[] = {
+    "REQ_ADD",
+    "REQ_INFOSE",
+    "REQ_STATUS",
+    "REQ_INFOSCII",
+    "REQ_UP",
+    "REQ_NONE",
+    "REQ_DOWN",
+
+    "REQ_REM",
+    "RES_ADD",
+    "RES_INFOSE",
+    "RES_INFOSCII",
+    "RES_STATUS",
+    "RES_UP",
+    "RES_NONE",
+    "RES_DOWN",
+
+    "ERROR",
+    "OK"
+};
+
 // UTILIDADES
 
 void logexit(const char *msg){
@@ -91,10 +113,12 @@ char* getMsgAsStr(Message* msg, size_t *msgSize){
     }
 }
 
-int sendMessage(int socket, Message* msg){
+int sendMessage(int socket, Message* msg, bool areWePrinting){
     size_t msgSize;
     char* buffer = getMsgAsStr(msg, &msgSize);
-    printf("[SENDING] %s", buffer);
+
+    if(areWePrinting == true && msg->type != RES_ADD && msg->type != ERROR && msg->type != OK)
+        printf("%s", buffer);
 
     size_t count = send(socket, buffer, msgSize, 0);
     
@@ -104,7 +128,7 @@ int sendMessage(int socket, Message* msg){
     return 0;
 }
 
-int getMessage(int socket, Message* msg, int* bitcount){
+int getMessage(int socket, Message* msg, int* bitcount, bool areWePrinting){
     char buffer[BUFSZ];
     memset(buffer, 0, BUFSZ);
 
@@ -114,7 +138,8 @@ int getMessage(int socket, Message* msg, int* bitcount){
     }
 
     msg->type = msgTypeFromString(buffer);
-    //printf("msg type = %d \n", msg->type);
+    if(areWePrinting == true && msg->type != REQ_ADD && msg->type != REQ_REM)
+        printf("%s\n", MessageTypeStr[msg->type]);
     if(msg->type > 6){
         strcpy(msg->payloadstr, buffer);
     } else { strcpy(msg->payloadstr, ""); }

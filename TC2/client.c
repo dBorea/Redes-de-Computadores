@@ -42,14 +42,14 @@ int handle_and_send_msgOut(int socketSE, int socketSCII, Message *msg_out){
     switch (msg_out->type){
     case REQ_ADD:
     case REQ_REM:
-        if(0 != sendMessage(socketSE, msg_out) || 0 != sendMessage(socketSCII, msg_out)){
+        if(0 != sendMessage(socketSE, msg_out, false) || 0 != sendMessage(socketSCII, msg_out, false)){
             logexit("Send both\n");
         }
         return BOTH_SERVERS;
     
     case REQ_INFOSE:
     case REQ_STATUS:
-        if(0 != sendMessage(socketSE, msg_out)){
+        if(0 != sendMessage(socketSE, msg_out, false)){
             logexit("Send SE\n");
         }
         return SE;
@@ -58,12 +58,12 @@ int handle_and_send_msgOut(int socketSE, int socketSCII, Message *msg_out){
     case REQ_UP:    
     case REQ_NONE:
     case REQ_DOWN:
-        if(0 != sendMessage(socketSCII, msg_out)){
+        if(0 != sendMessage(socketSCII, msg_out, false)){
             logexit("Send SCII\n");
         }
         return CII;
     }
-    
+    return -1;
 }
 
 int handle_received_messages(Message* msg_in){
@@ -123,19 +123,19 @@ int handle_incoming_messages(int sentTo, int socketSE, int socketSCII, int msgOu
 
     switch(sentTo){
         case SE:
-            if(0 != getMessage(socketSE, msg_in_SE, &bitcount)){
+            if(0 != getMessage(socketSE, msg_in_SE, &bitcount, false)){
                 logexit("SE server stopped responding\n");
             }
             break;
         
         case CII:
-            if(0 != getMessage(socketSCII, msg_in_SCII, &bitcount)){
+            if(0 != getMessage(socketSCII, msg_in_SCII, &bitcount, false)){
                 logexit("SCII server stopped responding\n");
             }
             break;
 
         case BOTH_SERVERS:
-            if(0 != getMessage(socketSE, msg_in_SE, &bitcount) || 0 != getMessage(socketSCII, msg_in_SCII, &bitcount)){
+            if(0 != getMessage(socketSE, msg_in_SE, &bitcount, false) || 0 != getMessage(socketSCII, msg_in_SCII, &bitcount, false)){
                 logexit("At least one server stopped responding\n");
             }
             break;
@@ -160,7 +160,7 @@ int handle_incoming_messages(int sentTo, int socketSE, int socketSCII, int msgOu
                 default:
                     logexit("REQ_STATUS returned invalid response from server\n");
             }
-            sendMessage(socketSCII, msg_out_buff);
+            sendMessage(socketSCII, msg_out_buff, false);
             return msg_out_buff->type;
 
         case REQ_INFOSCII:
@@ -239,18 +239,18 @@ int main(int argc, char **argv) {
     char addrstr2[BUFSZ];
     addrtostr(addr1, addrstr1, BUFSZ);
     addrtostr(addr2, addrstr2, BUFSZ);
-    printf("connected to %s and %s\n", addrstr1, addrstr2);
+    // printf("connected to %s and %s\n", addrstr1, addrstr2);
 
     Message *msg_out = buildMessage(REQ_ADD, "");
     Message *msg_in = buildMessage(-1, "");
     int bitcount;
     int running = 1;
 
-    if(0 != sendMessage(sockSE, msg_out) || 0 != sendMessage(sockSCII, msg_out)){
+    if(0 != sendMessage(sockSE, msg_out, false) || 0 != sendMessage(sockSCII, msg_out, false)){
         logexit("Add request failed");
     }
 
-    if(0 != getMessage(sockSE, msg_in, &bitcount) || 0 != getMessage(sockSCII, msg_in, &bitcount)){
+    if(0 != getMessage(sockSE, msg_in, &bitcount, false) || 0 != getMessage(sockSCII, msg_in, &bitcount, false)){
         logexit("At least one server stopped responding\n");
     }
     
@@ -265,8 +265,14 @@ int main(int argc, char **argv) {
         build_command_msg(msg_out);
 
         int sentTo = handle_and_send_msgOut(sockSE, sockSCII, msg_out);
+        if (sentTo == -1)
+            logexit("Message sent to no one\n");
 
         int retCode = handle_incoming_messages(sentTo, sockSE, sockSCII, msg_out->type);
+
+        // Return type disconnect
+        if(retCode == 1)
+            running = 0;
 
         // Espera por mensagens mais uma vez em caso de requisições multi-step
         if(retCode == REQ_UP || retCode == REQ_NONE || retCode == REQ_DOWN){

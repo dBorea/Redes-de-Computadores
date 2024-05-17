@@ -12,6 +12,11 @@
 #include <bits/pthreadtypes.h>
 #include <asm-generic/socket.h>
 
+static const char *ServerTypeStr[] = {
+    "SE",
+    "CII"
+};
+
 typedef struct ClientData{
     int csock;
     struct sockaddr_storage storage;
@@ -48,65 +53,65 @@ int randomPowerGen(){
     return 20 + rand() % (50 + 1 - 20);
 }
 
-int tryIncludingClient(ServerData *server_data){
+int tryIncludingClient(ServerData *server_data, ClientData *cdata){
     int i=0;
     for(; i<10; i++){
         if(server_data->clientIds[i] == 0)
         break;
     } if(i == 10) return -1;
 
-    printf("Client %d added\n", i);
+    printf("Client %d added\n", i+1);
     server_data->clientIds[i] = 1;
 
-    struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
-    cdata->client_id = i;
-    return i;
+    cdata->client_id = i+1;
+    return i+1;
 }
 
 int tryDisconnectingClient(ServerData *server_data, int C_id){
-    if(server_data->clientIds[C_id] != 1)
+    if(server_data->clientIds[C_id - 1] != 1)
         return -1;
 
-    server_data->clientIds[C_id] = 0;
+    server_data->clientIds[C_id - 1] = 0;
     printf("Servidor %s Client %d removed\n", ServerTypeStr[server_data->server_type], C_id);
     return 0;
 }
 
-int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
+int serverMsgHandler(ServerData *server_data, ClientData *cdata, Message *msg){ 
+    int socket = cdata->csock;
     Message* bufMsg = buildMessage(-1, "");
     char strBuf[BUFSZ];
     memset(strBuf, 0, BUFSZ);
 
     switch(msg->type){
         case REQ_ADD:
-            int C_id = tryIncludingClient(server_data);
+            int C_id = tryIncludingClient(server_data, cdata);
             if(C_id == -1){
                 changeMessage(bufMsg, ERROR, "01\n");
-                sendMessage(socket, bufMsg);
+                sendMessage(socket, bufMsg, true);
                 return -1;
             }
             else {
                 sprintf(strBuf, "%d\n", C_id);
                 changeMessage(bufMsg, RES_ADD, strBuf);
-                sendMessage(socket, bufMsg);
+                sendMessage(socket, bufMsg, true);
             }
             break;
         
         case REQ_REM:
             if(0 != tryDisconnectingClient(server_data, atoi(msg->payloadstr))){
                 changeMessage(bufMsg, ERROR, "02\n");
-                sendMessage(socket, bufMsg);
+                sendMessage(socket, bufMsg, true);
             } else {
                 changeMessage(bufMsg, OK, "01\n");
-                sendMessage(socket, bufMsg);
+                sendMessage(socket, bufMsg, true);
                 return -1;
             }
             break;
 
         case REQ_INFOSE:
-            sprintf(strBuf, "%d\n", server_data->dataValue);
+            sprintf(strBuf, "%d kWh\n", server_data->dataValue);
             changeMessage(bufMsg, RES_INFOSE, strBuf);
-            sendMessage(socket, bufMsg);
+            sendMessage(socket, bufMsg, true);
             break;
 
         case REQ_STATUS:
@@ -118,14 +123,14 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
                 sprintf(strBuf, "alta\n");
             }
             changeMessage(bufMsg, RES_STATUS, strBuf);
-            sendMessage(socket, bufMsg);
+            sendMessage(socket, bufMsg, true);
             server_data->dataValue = randomPowerGen();
             break;
 
         case REQ_INFOSCII:
-            sprintf(strBuf, "%d\n", server_data->dataValue);
+            sprintf(strBuf, "%d%%\n", server_data->dataValue);
             changeMessage(bufMsg, RES_INFOSCII, strBuf);
-            sendMessage(socket, bufMsg);
+            sendMessage(socket, bufMsg, true);
             break;
 
         case REQ_UP:
@@ -133,13 +138,13 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
             server_data->dataValue = randomPowerUsage(1, server_data);
             sprintf(strBuf, "%d %d\n", old_value_up, server_data->dataValue);
             changeMessage(bufMsg, RES_UP, strBuf);
-            sendMessage(socket, bufMsg);
+            sendMessage(socket, bufMsg, true);
             break;
 
         case REQ_NONE:
             sprintf(strBuf, "%d\n", server_data->dataValue);
             changeMessage(bufMsg, RES_NONE, strBuf);
-            sendMessage(socket, bufMsg);
+            sendMessage(socket, bufMsg, true);
             break;
 
         case REQ_DOWN:
@@ -147,7 +152,7 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
             server_data->dataValue = randomPowerUsage(-1, server_data);
             sprintf(strBuf, "%d %d\n", old_value_down, server_data->dataValue);
             changeMessage(bufMsg, RES_DOWN, strBuf);
-            sendMessage(socket, bufMsg);
+            sendMessage(socket, bufMsg, true);
             break;
     }
     return 0;
@@ -155,29 +160,30 @@ int serverMsgHandler(ServerData *server_data, int socket, Message *msg){
 
 void * client_thread(void *data){
     ServerData *server_data = (struct ServerData *)data;
-    struct ClientData *cdata = (struct ClientData *)(&server_data->cdata);
+    struct ClientData *cdata = malloc(sizeof(ClientData));
+    memcpy(cdata, (struct ClientData *)(&server_data->cdata), sizeof(ClientData));
     struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
 
     char caddrstr[BUFSZ];
     addrtostr(caddr, caddrstr, BUFSZ);
-    printf("[SE] [log] connection from %s\n", caddrstr);
+    // printf("[SE] [log] connection from %s\n", caddrstr);
 
     Message *msg_in = buildMessage(-1, "");  
 
     while(1){ // Loop interno do server SE, gerencia as mensagens e a comunicação com o cliente
         // EXECUTION LOOP 
         int bitcount;
-        if(0 != getMessage(cdata->csock, msg_in, &bitcount)){
+        if(0 != getMessage(cdata->csock, msg_in, &bitcount, true)){
             // printf("[log] client forcefully disconnected\n");
             tryDisconnectingClient(server_data, cdata->client_id);
             close(cdata->csock);
             break;
         }
-        printf("[msg] (%d bytes) %s",(int)bitcount, getMsgAsStr(msg_in, NULL));
+        // printf("[msg] (%d bytes) %s",(int)bitcount, getMsgAsStr(msg_in, NULL));
         fflush(stdout);
 
-        if(-1 == serverMsgHandler(server_data, cdata->csock, msg_in)){
-            pthread_exit(EXIT_SUCCESS);
+        if(-1 == serverMsgHandler(server_data, cdata, msg_in)){
+            break;
         }
     }
 
@@ -207,17 +213,17 @@ int main(int argc, char **argv) {
     for(int i=0; i<10; i++) { server_data->clientIds[i] = 0; }
 
     if(strcmp(argv[2], "12345") == 0){
-        printf("Server type [SE]\n");
+        // printf("Server type [SE]\n");
         server_data->server_type = SE;
         server_data->dataValue = randomPowerGen();
-        printf("[SE] [log] Power Gen. initialized as %d\n", server_data->dataValue);
+        // printf("[SE] [log] Power Gen. initialized as %d\n", server_data->dataValue);
 
     } 
     else if (strcmp(argv[2], "54321") == 0){
-        printf("Server type [CII]\n");
+        // printf("Server type [CII]\n");
         server_data->server_type = CII;
         server_data->dataValue = randomPowerUsage(0, server_data);
-        printf("[CII] [log] Power Usage. initialized as %d\n", server_data->dataValue);
+        // printf("[CII] [log] Power Usage. initialized as %d\n", server_data->dataValue);
 
     } 
     else {
@@ -247,7 +253,8 @@ int main(int argc, char **argv) {
 
     char addrstr[BUFSZ];
     addrtostr(addr, addrstr, BUFSZ);
-    printf("bound to %s, waiting connection\n", addrstr);
+    // printf("bound to %s, waiting connection\n", addrstr);
+    printf("Starting to listen..\n");
 
     bool running = true;
 
@@ -267,20 +274,9 @@ int main(int argc, char **argv) {
         }
         memcpy(&(cdata->storage), &c_storage, sizeof(c_storage));
         memcpy(&(server_data->cdata), cdata, sizeof(*cdata));
-        //server_data->cdata->csock = csock;
-
 
         pthread_t tid;
         pthread_create(&tid, NULL, client_thread, server_data);
-        /* switch (server_data->server_type){
-        case SE:
-            pthread_create(&tid, NULL, SE_thread, server_data);
-            break;
-        
-        case CII:
-            pthread_create(&tid, NULL, CII_thread, server_data);
-            break;
-        } */
 
     }
 
