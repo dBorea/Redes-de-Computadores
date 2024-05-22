@@ -162,10 +162,10 @@ void * client_thread(void *data){
     ServerData *server_data = (struct ServerData *)data;
     struct ClientData *cdata = malloc(sizeof(ClientData));
     memcpy(cdata, (struct ClientData *)(&server_data->cdata), sizeof(ClientData));
-    struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
 
-    char caddrstr[BUFSZ];
-    addrtostr(caddr, caddrstr, BUFSZ);
+    // struct sockaddr *caddr = (struct sockaddr *)(&cdata->storage);
+    // char caddrstr[BUFSZ];
+    // addrtostr(caddr, caddrstr, BUFSZ);
     // printf("[SE] [log] connection from %s\n", caddrstr);
 
     Message *msg_in = buildMessage(-1, "");  
@@ -256,13 +256,12 @@ int main(int argc, char **argv) {
     // printf("bound to %s, waiting connection\n", addrstr);
     printf("Starting to listen..\n");
 
+    struct sockaddr_storage c_storage;
+    struct sockaddr *caddr = (struct sockaddr *)(&c_storage);
+    socklen_t caddrlen = sizeof(c_storage);
+
     bool running = true;
-
     while(running){ // Loop externo, apenas para conexões;
-        struct sockaddr_storage c_storage;
-        struct sockaddr *caddr = (struct sockaddr *)(&c_storage);
-        socklen_t caddrlen = sizeof(c_storage);
-
         struct ClientData *cdata = malloc(sizeof(*cdata));
         if(!cdata){
             logexit("malloc");
