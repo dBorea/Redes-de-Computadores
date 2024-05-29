@@ -77,11 +77,11 @@ int handle_received_messages(Message* msg_in){
             break;
 
         case RES_INFOSE:
-            printf("producao atual: %s", msg_in->payloadstr);
+            printf("producao atual: %d kWh\n", atoi(msg_in->payloadstr));
             break;
 
         case RES_INFOSCII:
-            printf("consumo atual: %s", msg_in->payloadstr);
+            printf("consumo atual: %d%%\n", atoi(msg_in->payloadstr));
             break;
 
         case RES_STATUS:

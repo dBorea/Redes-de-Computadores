@@ -109,9 +109,10 @@ int serverMsgHandler(ServerData *server_data, ClientData *cdata, Message *msg){
             break;
 
         case REQ_INFOSE:
-            sprintf(strBuf, "%d kWh\n", server_data->dataValue);
+            sprintf(strBuf, "%d\n", server_data->dataValue);
             changeMessage(bufMsg, RES_INFOSE, strBuf);
-            sendMessage(socket, bufMsg, true);
+            sendMessage(socket, bufMsg, false);
+            printf("RES_INFOSE %d kWh\n", server_data->dataValue);
             break;
 
         case REQ_STATUS:
@@ -128,9 +129,10 @@ int serverMsgHandler(ServerData *server_data, ClientData *cdata, Message *msg){
             break;
 
         case REQ_INFOSCII:
-            sprintf(strBuf, "%d%%\n", server_data->dataValue);
+            sprintf(strBuf, "%d\n", server_data->dataValue);
             changeMessage(bufMsg, RES_INFOSCII, strBuf);
-            sendMessage(socket, bufMsg, true);
+            sendMessage(socket, bufMsg, false);
+            printf("RES_INFOSCII %d%%\n", server_data->dataValue);
             break;
 
         case REQ_UP:
